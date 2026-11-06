@@ -37,10 +37,10 @@
 
 <div class="card">
   <h2>Πτήση</h2>
-  <div class="row"><label>Block off</label><input id="boff" inputmode="numeric" placeholder="10:10"></div>
-  <div class="row"><label>Taxi out (λεπτά)</label><input id="tout" inputmode="numeric" value="10"></div>
-  <div class="row"><label>Flight time</label><input id="ft" inputmode="numeric" placeholder="2:30"></div>
-  <div class="row"><label>Taxi in (λεπτά)</label><input id="tin" inputmode="numeric" value="10"></div>
+  <div class="row"><label>Block off</label><input id="boff" inputmode="decimal" placeholder="10:10"></div>
+  <div class="row"><label>Taxi out (λεπτά)</label><input id="tout" inputmode="decimal" value="10"></div>
+  <div class="row"><label>Flight time</label><input id="ft" inputmode="decimal" placeholder="2:30"></div>
+  <div class="row"><label>Taxi in (λεπτά)</label><input id="tin" inputmode="decimal" value="10"></div>
 </div>
 
 <div class="card">
@@ -49,22 +49,23 @@
   <div class="row"><label>Προσγείωση</label><span class="out" id="ldg">--:--</span></div>
   <div class="row"><label>Block on</label><span class="out" id="bon">--:--</span></div>
   <div class="row"><label>Block time</label><span class="out ok" id="bt">-:--</span></div>
-  <div class="small">Ώρες σε 24ωρη μορφή. Γράψε 1010 ή 10:10, και για διάρκεια 230 ή 2:30.</div>
+  <div class="small">Ώρες σε 24ωρη μορφή. Βάζε κόμμα ανάμεσα σε ώρες και λεπτά: 10,10 ή 2,30. Χωρίς κόμμα, τα δύο τελευταία ψηφία είναι λεπτά (1010 = 10:10).</div>
 </div>
 
 <div class="card">
   <h2>Ώρες αεροσκάφους</h2>
-  <div class="row"><label>Ώρες πριν την πτήση</label><input id="ac" class="wide" inputmode="numeric" placeholder="2353:50"></div>
-  <div class="row"><label>+ Flight time</label><span class="out" id="acft">-:--</span></div>
+  <div class="row"><label>Ώρες πριν την πτήση</label><input id="ac" class="wide" inputmode="decimal" placeholder="2353:50"></div>
+  <div class="row"><label>+ Flight time σήμερα</label><input id="acft" inputmode="decimal" placeholder="2:10"></div>
   <div class="row"><label>Νέο σύνολο</label><span class="out ok" id="actot">----:--</span></div>
-  <div class="small">Προσθέτει μόνο το flight time (απογείωση → προσγείωση), χωρίς τα taxi.</div>
+  <div class="small">Παίρνει αυτόματα το flight time από πάνω, αλλά μπορείς να το αλλάξεις. Μόνο flight time, χωρίς taxi. Π.χ. 2847,50 + 2,10 = 2850:00. Χωρίς κόμμα είναι ολόκληρες ώρες (10000 = 10000:00).</div>
 </div>
 
 <div class="card">
   <h2>Πρόσθεση ωρών</h2>
-  <div class="row"><label>Α</label><input id="a1" class="wide" inputmode="numeric" placeholder="2353:50"></div>
-  <div class="row"><label>+ Β</label><input id="a2" class="wide" inputmode="numeric" placeholder="3:15"></div>
+  <div class="row"><label>Α</label><input id="a1" class="wide" inputmode="decimal" placeholder="2353:50"></div>
+  <div class="row"><label>+ Β</label><input id="a2" class="wide" inputmode="decimal" placeholder="3:15"></div>
   <div class="row"><label>Σύνολο</label><span class="out ok" id="asum">----:--</span></div>
+  <div class="small">Βάλε κόμμα για λεπτά: 2353,50 + 3,15. Χωρίς κόμμα είναι ολόκληρες ώρες.</div>
 </div>
 
 <div class="btns"><button id="clr">Καθαρισμός</button></div>
@@ -87,6 +88,12 @@ function parseHM(s){
   }
   if(isNaN(h)||isNaN(m)||m>59||h<0) return NaN;
   return h*60+m;
+}
+// Totals: digits only = whole hours (10000 -> 10000:00); with comma -> hours,minutes
+function parseTotal(s){
+  s=(s||'').trim(); if(!s) return null;
+  if(/^\d+$/.test(s)) return (+s)*60;
+  return parseHM(s);
 }
 function parseClock(s){
   const v = parseHM(s);
@@ -117,25 +124,27 @@ function calc(){
     }
   }
   // Aircraft hours
-  const ac = parseHM($('ac').value);
-  set('acft', (ft===null||isNaN(ft)) ? '-:--' : dur(ft));
+  if(!acftManual) $('acft').value = (ft===null||isNaN(ft)) ? '' : dur(ft).replace(':',',');
+  const ac = parseTotal($('ac').value), af = parseHM($('acft').value);
   if(ac===null) set('actot','----:--');
-  else if(isNaN(ac)) set('actot','λάθος',true);
-  else set('actot', dur(ac + ((ft===null||isNaN(ft))?0:ft)));
+  else if(isNaN(ac)||isNaN(af)) set('actot','λάθος',true);
+  else set('actot', dur(ac + (af||0)));
   // Free adder
-  const a1 = parseHM($('a1').value), a2 = parseHM($('a2').value);
+  const a1 = parseTotal($('a1').value), a2 = parseTotal($('a2').value);
   if(a1===null && a2===null) set('asum','----:--');
   else if(isNaN(a1)||isNaN(a2)) set('asum','λάθος',true);
   else set('asum', dur((a1||0)+(a2||0)));
   save();
 }
 
-const ids = ['boff','tout','ft','tin','ac','a1','a2'];
-function save(){ try{ const o={}; ids.forEach(i=>o[i]=$(i).value); localStorage.setItem('bt',JSON.stringify(o)); }catch(e){} }
-function load(){ try{ const o=JSON.parse(localStorage.getItem('bt')||'{}'); ids.forEach(i=>{ if(o[i]!=null) $(i).value=o[i]; }); }catch(e){} }
+let acftManual = false;
+const ids = ['boff','tout','ft','tin','ac','acft','a1','a2'];
+function save(){ try{ const o={}; ids.forEach(i=>o[i]=$(i).value); o.acftManual=acftManual; localStorage.setItem('bt',JSON.stringify(o)); }catch(e){} }
+function load(){ try{ const o=JSON.parse(localStorage.getItem('bt')||'{}'); ids.forEach(i=>{ if(o[i]!=null) $(i).value=o[i]; }); acftManual=!!o.acftManual; }catch(e){} }
 
+$('acft').addEventListener('input', ()=>{ acftManual = $('acft').value.trim()!==''; });
 ids.forEach(i => { $(i).addEventListener('input', calc); $(i).addEventListener('focus', e=>e.target.select()); });
-$('clr').onclick = () => { ['boff','ft','ac','a1','a2'].forEach(i=>$(i).value=''); $('tout').value='10'; $('tin').value='10'; calc(); };
+$('clr').onclick = () => { acftManual=false; ['boff','ft','ac','acft','a1','a2'].forEach(i=>$(i).value=''); $('tout').value='10'; $('tin').value='10'; calc(); };
 load(); calc();
 </script>
 </body>
