@@ -45,9 +45,11 @@
 
 <div class="card">
   <h2>Αποτέλεσμα</h2>
-  <div class="row"><label>Απογείωση</label><span class="out" id="to">--:--</span></div>
-  <div class="row"><label>Προσγείωση</label><span class="out" id="ldg">--:--</span></div>
+  <div class="row"><label>Block off</label><span class="out" id="rboff">--:--</span></div>
+  <div class="row"><label>Take off</label><span class="out" id="to">--:--</span></div>
+  <div class="row"><label>Landing</label><span class="out" id="ldg">--:--</span></div>
   <div class="row"><label>Block on</label><span class="out" id="bon">--:--</span></div>
+  <div class="row"><label>Flight time</label><span class="out ok" id="rft">-:--</span></div>
   <div class="row"><label>Block time</label><span class="out ok" id="bt">-:--</span></div>
   <div class="small">Ώρες σε 24ωρη μορφή. Βάζε κόμμα ανάμεσα σε ώρες και λεπτά: 10,10 ή 2,30. Χωρίς κόμμα, τα δύο τελευταία ψηφία είναι λεπτά (1010 = 10:10).</div>
 </div>
@@ -113,6 +115,8 @@ function set(id, html, bad){ const e=$(id); e.innerHTML=html; e.classList.toggle
 function calc(){
   const boff = parseClock($('boff').value), tout = parseMin($('tout').value),
         ft = parseHM($('ft').value), tin = parseMin($('tin').value);
+  set('rboff', (boff===null||isNaN(boff)) ? '--:--' : clock(boff));
+  set('rft', (ft===null||isNaN(ft)) ? '-:--' : dur(ft));
   if(boff===null || isNaN(boff) || isNaN(tout)){
     set('to', boff===null?'--:--':'λάθος', boff!==null); set('ldg','--:--'); set('bon','--:--'); set('bt','-:--');
   } else {
