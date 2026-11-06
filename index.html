@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Block Times">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b1a2e">
+<title>Block Times</title>
+<style>
+  :root{--bg:#0b1a2e;--card:#13263f;--line:#24405f;--txt:#eaf1fa;--mut:#8ea6c2;--acc:#4fc3f7;--ok:#7ee08a;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);font:17px -apple-system,system-ui,sans-serif;
+       padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 24px)}
+  h1{font-size:22px;margin:4px 2px 14px}
+  h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0}
+  .row+.row{border-top:1px solid var(--line)}
+  label{color:var(--mut);font-size:15px}
+  input{width:120px;font:600 22px ui-monospace,Menlo,monospace;text-align:center;color:var(--txt);
+        background:#0d1d33;border:1px solid var(--line);border-radius:10px;padding:8px}
+  input.wide{width:150px}
+  input:focus{outline:2px solid var(--acc)}
+  .out{font:700 26px ui-monospace,Menlo,monospace;color:var(--acc)}
+  .out.ok{color:var(--ok)}
+  .small{font-size:13px;color:var(--mut);margin-top:8px;line-height:1.4}
+  button{font:600 15px -apple-system,system-ui;background:#1d3a5c;color:var(--txt);border:1px solid var(--line);
+         border-radius:10px;padding:10px 14px}
+  .btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .err{color:#ff8a80}
+</style>
+</head>
+<body>
+<h1>✈︎ Block Times</h1>
+
+<div class="card">
+  <h2>Πτήση</h2>
+  <div class="row"><label>Block off</label><input id="boff" inputmode="numeric" placeholder="10:10"></div>
+  <div class="row"><label>Taxi out (λεπτά)</label><input id="tout" inputmode="numeric" value="10"></div>
+  <div class="row"><label>Flight time</label><input id="ft" inputmode="numeric" placeholder="2:30"></div>
+  <div class="row"><label>Taxi in (λεπτά)</label><input id="tin" inputmode="numeric" value="10"></div>
+</div>
+
+<div class="card">
+  <h2>Αποτέλεσμα</h2>
+  <div class="row"><label>Απογείωση</label><span class="out" id="to">--:--</span></div>
+  <div class="row"><label>Προσγείωση</label><span class="out" id="ldg">--:--</span></div>
+  <div class="row"><label>Block on</label><span class="out" id="bon">--:--</span></div>
+  <div class="row"><label>Block time</label><span class="out ok" id="bt">-:--</span></div>
+  <div class="small">Ώρες σε 24ωρη μορφή. Γράψε 1010 ή 10:10, και για διάρκεια 230 ή 2:30.</div>
+</div>
+
+<div class="card">
+  <h2>Ώρες αεροσκάφους</h2>
+  <div class="row"><label>Ώρες πριν την πτήση</label><input id="ac" class="wide" inputmode="numeric" placeholder="2353:50"></div>
+  <div class="row"><label>+ Flight time</label><span class="out" id="acft">-:--</span></div>
+  <div class="row"><label>Νέο σύνολο</label><span class="out ok" id="actot">----:--</span></div>
+  <div class="small">Προσθέτει μόνο το flight time (απογείωση → προσγείωση), χωρίς τα taxi.</div>
+</div>
+
+<div class="card">
+  <h2>Πρόσθεση ωρών</h2>
+  <div class="row"><label>Α</label><input id="a1" class="wide" inputmode="numeric" placeholder="2353:50"></div>
+  <div class="row"><label>+ Β</label><input id="a2" class="wide" inputmode="numeric" placeholder="3:15"></div>
+  <div class="row"><label>Σύνολο</label><span class="out ok" id="asum">----:--</span></div>
+</div>
+
+<div class="btns"><button id="clr">Καθαρισμός</button></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+
+// "1010", "10:10", "10.10", "10,10" -> minutes. Duration also: "230" -> 150, "2353:50"
+function parseHM(s){
+  s = (s||'').trim().replace(/[.,]/g,':');
+  if(!s) return null;
+  let h, m;
+  if(s.includes(':')){
+    const p = s.split(':'); h = +p[0]; m = +(p[1]||0);
+  } else {
+    if(!/^\d+$/.test(s)) return NaN;
+    if(s.length <= 2){ h = 0; m = +s; }            // "45" -> 0:45
+    else { h = +s.slice(0,-2); m = +s.slice(-2); }  // "230" -> 2:30
+  }
+  if(isNaN(h)||isNaN(m)||m>59||h<0) return NaN;
+  return h*60+m;
+}
+function parseClock(s){
+  const v = parseHM(s);
+  if(v===null||isNaN(v)) return v;
+  return v >= 24*60 ? NaN : v;
+}
+function parseMin(s){
+  s=(s||'').trim(); if(!s) return 0;
+  return /^\d+$/.test(s) ? +s : NaN;
+}
+const clock = m => { const d = Math.floor(m/1440); m = ((m%1440)+1440)%1440;
+  return pad(Math.floor(m/60))+':'+pad(m%60) + (d>0 ? ' <small>+'+d+'</small>' : ''); };
+const dur = m => Math.floor(m/60)+':'+pad(m%60);
+
+function set(id, html, bad){ const e=$(id); e.innerHTML=html; e.classList.toggle('err', !!bad); }
+
+function calc(){
+  const boff = parseClock($('boff').value), tout = parseMin($('tout').value),
+        ft = parseHM($('ft').value), tin = parseMin($('tin').value);
+  if(boff===null || isNaN(boff) || isNaN(tout)){
+    set('to', boff===null?'--:--':'λάθος', boff!==null); set('ldg','--:--'); set('bon','--:--'); set('bt','-:--');
+  } else {
+    const to = boff + tout; set('to', clock(to));
+    if(ft===null || isNaN(ft) || isNaN(tin)){
+      set('ldg', ft===null?'--:--':'λάθος', ft!==null); set('bon','--:--'); set('bt','-:--');
+    } else {
+      set('ldg', clock(to+ft)); set('bon', clock(to+ft+tin)); set('bt', dur(tout+ft+tin));
+    }
+  }
+  // Aircraft hours
+  const ac = parseHM($('ac').value);
+  set('acft', (ft===null||isNaN(ft)) ? '-:--' : dur(ft));
+  if(ac===null) set('actot','----:--');
+  else if(isNaN(ac)) set('actot','λάθος',true);
+  else set('actot', dur(ac + ((ft===null||isNaN(ft))?0:ft)));
+  // Free adder
+  const a1 = parseHM($('a1').value), a2 = parseHM($('a2').value);
+  if(a1===null && a2===null) set('asum','----:--');
+  else if(isNaN(a1)||isNaN(a2)) set('asum','λάθος',true);
+  else set('asum', dur((a1||0)+(a2||0)));
+  save();
+}
+
+const ids = ['boff','tout','ft','tin','ac','a1','a2'];
+function save(){ try{ const o={}; ids.forEach(i=>o[i]=$(i).value); localStorage.setItem('bt',JSON.stringify(o)); }catch(e){} }
+function load(){ try{ const o=JSON.parse(localStorage.getItem('bt')||'{}'); ids.forEach(i=>{ if(o[i]!=null) $(i).value=o[i]; }); }catch(e){} }
+
+ids.forEach(i => { $(i).addEventListener('input', calc); $(i).addEventListener('focus', e=>e.target.select()); });
+$('clr').onclick = () => { ['boff','ft','ac','a1','a2'].forEach(i=>$(i).value=''); $('tout').value='10'; $('tin').value='10'; calc(); };
+load(); calc();
+</script>
+</body>
+</html>
